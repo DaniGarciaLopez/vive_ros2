@@ -94,7 +94,7 @@ void ViveInput::runVR() {
             logMessage(Debug, "Application Menu button pressed, resetting the pose");
             first_run = true; // Reset the first run flag
             local_data.menu_button = true;
-            VRUtils::HapticFeedback(pHMD, i, 200);
+            // VRUtils::HapticFeedback(pHMD, i, 200);
           }
           if ((1LL << vr::k_EButton_SteamVR_Trigger) & controllerState.ulButtonPressed) {
             logMessage(Debug, "Trigger button pressed");
@@ -104,7 +104,7 @@ void ViveInput::runVR() {
           if ((1LL << vr::k_EButton_SteamVR_Touchpad) & controllerState.ulButtonPressed) {
             logMessage(Debug, "Touchpad button pressed");
             local_data.trackpad_button = true;
-            VRUtils::HapticFeedback(pHMD, i, 200);
+            // VRUtils::HapticFeedback(pHMD, i, 200);
           }
           if ((1LL << vr::k_EButton_Grip) & controllerState.ulButtonPressed){
             logMessage(Debug, "Grip button pressed");
@@ -130,7 +130,7 @@ void ViveInput::runVR() {
           // Check if the trigger value has crossed a new step
           if (currentStep != previousStep) {
               int vibrationDuration = static_cast<int>(triggerValue * 3000);
-              VRUtils::HapticFeedback(pHMD, i, vibrationDuration);
+              // VRUtils::HapticFeedback(pHMD, i, vibrationDuration);
               previousStep = currentStep;
           }
           // haptic feedback after trigger value pass 0.6
@@ -158,7 +158,7 @@ void ViveInput::runVR() {
               // check if delta distance is too high
               if (delta_distance > 0.05) {
                   logMessage(Warning, "Unreasonable delta_distance detected: " + std::to_string(delta_distance) + " units. Skipping this data." + "\n");
-                  VRUtils::HapticFeedback(pHMD, i, 20);
+                  // VRUtils::HapticFeedback(pHMD, i, 20);
                   continue; // Skip this iteration if delta_distance is too high
               } else {
                   logMessage(Debug, "Will publish this data");
