@@ -205,21 +205,21 @@ public:
                     jsonData.role = j["role"];
                     jsonData.time = j["time"];
                     // Example of using stored data
-                    RCLCPP_INFO(this->get_logger(), "Time: %s", jsonData.time.c_str());
-                    RCLCPP_INFO(this->get_logger(), "Pose x: %f", jsonData.pose_x);
-                    RCLCPP_INFO(this->get_logger(), "Pose y: %f", jsonData.pose_y);
-                    RCLCPP_INFO(this->get_logger(), "Pose z: %f", jsonData.pose_z);
+                    RCLCPP_DEBUG(this->get_logger(), "Time: %s", jsonData.time.c_str());
+                    RCLCPP_DEBUG(this->get_logger(), "Pose x: %f", jsonData.pose_x);
+                    RCLCPP_DEBUG(this->get_logger(), "Pose y: %f", jsonData.pose_y);
+                    RCLCPP_DEBUG(this->get_logger(), "Pose z: %f", jsonData.pose_z);
 
-                    RCLCPP_INFO(this->get_logger(), "Menu button: %s", jsonData.menu_button ? "true" : "false");
-                    RCLCPP_INFO(this->get_logger(), "Trigger button: %s", jsonData.trigger_button ? "true" : "false");
-                    RCLCPP_INFO(this->get_logger(), "Trackpad touch: %s", jsonData.trackpad_touch ? "true" : "false");
-                    RCLCPP_INFO(this->get_logger(), "Trackpad button: %s", jsonData.trackpad_button ? "true" : "false");
-                    RCLCPP_INFO(this->get_logger(), "Grip button: %s", jsonData.grip_button ? "true" : "false");
+                    RCLCPP_DEBUG(this->get_logger(), "Menu button: %s", jsonData.menu_button ? "true" : "false");
+                    RCLCPP_DEBUG(this->get_logger(), "Trigger button: %s", jsonData.trigger_button ? "true" : "false");
+                    RCLCPP_DEBUG(this->get_logger(), "Trackpad touch: %s", jsonData.trackpad_touch ? "true" : "false");
+                    RCLCPP_DEBUG(this->get_logger(), "Trackpad button: %s", jsonData.trackpad_button ? "true" : "false");
+                    RCLCPP_DEBUG(this->get_logger(), "Grip button: %s", jsonData.grip_button ? "true" : "false");
                     
-                    RCLCPP_INFO(this->get_logger(), "Trackpad x: %f", jsonData.trackpad_x);
-                    RCLCPP_INFO(this->get_logger(), "Trackpad y: %f", jsonData.trackpad_y);
-                    RCLCPP_INFO(this->get_logger(), "Trigger: %f", jsonData.trigger);
-                    RCLCPP_INFO(this->get_logger(), "Role: %d", jsonData.role);
+                    RCLCPP_DEBUG(this->get_logger(), "Trackpad x: %f", jsonData.trackpad_x);
+                    RCLCPP_DEBUG(this->get_logger(), "Trackpad y: %f", jsonData.trackpad_y);
+                    RCLCPP_DEBUG(this->get_logger(), "Trigger: %f", jsonData.trigger);
+                    RCLCPP_DEBUG(this->get_logger(), "Role: %d", jsonData.role);
                     printf("\n");
 
                     // Handle trigger button state

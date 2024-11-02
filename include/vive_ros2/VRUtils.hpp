@@ -30,7 +30,7 @@ inline void logMessage(LogLevel level, const std::string& message) {
             std::cout << "[INFO] " << message << std::endl;
             break;
         case Debug:
-            std::cout << "[DEBUG] " << message << std::endl;
+            // std::cout << "[DEBUG] " << message << std::endl;
             break;
         case Warning:
             std::cerr << "[WARNING] " << message << std::endl;
