@@ -21,12 +21,9 @@ private:
     std::string address;
     int port;
     VRControllerData jsonData; // Use the struct for JSON data
-    VRControllerData initialPose;
-    bool triggerButtonPressed = false;
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr abs_transform_publisher_;
-    rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr rel_transform_publisher_;
-    rclcpp::Publisher<vive_ros2::msg::VRControllerData>::SharedPtr controller_data_publisher_;
+    rclcpp::Publisher<vive_ros2::msg::VRControllerData>::SharedPtr tracker_data_publisher_;
 
     void connectToServer() {
         sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -52,13 +49,11 @@ private:
         RCLCPP_INFO(this->get_logger(), "Reconnected to server.");
     }
 
-    void publishTransform(const VRControllerData& pose, bool isRelative = false) {
+    void publishTransform(const VRControllerData& pose) {
         geometry_msgs::msg::TransformStamped transformStamped;
         transformStamped.header.stamp = this->now();
         transformStamped.header.frame_id = "world";
-        // transformStamped.header.frame_id = (isRelative) ? "wx250s/ee_gripper_link" : "world";
-        // transformStamped.child_frame_id = "vive_pose";
-        transformStamped.child_frame_id = (isRelative) ? "vive_pose_rel" : "vive_pose_abs";
+        transformStamped.child_frame_id = "vive_pose_abs";
 
         transformStamped.transform.translation.x = -pose.pose_z;
         transformStamped.transform.translation.y = -pose.pose_x;
@@ -70,45 +65,7 @@ private:
 
         // Publish to TF
         tf_broadcaster_->sendTransform(transformStamped);
-        // Publish to the /vive_pose_abs or /vive_pose_rel topic
-        if (isRelative) {
-            rel_transform_publisher_->publish(transformStamped);
-        } else {
-            abs_transform_publisher_->publish(transformStamped);
-        }
-    }
-
-    VRControllerData calculateRelativePose(const VRControllerData& initial, const VRControllerData& current) {
-        VRControllerData relativePose;
-
-        // Calculate the relative position
-        float rel_x = current.pose_x - initial.pose_x;
-        float rel_y = current.pose_y - initial.pose_y;
-        float rel_z = current.pose_z - initial.pose_z;
-
-        // Create quaternions from the initial and current poses
-        Quaternion initialQuat(initial.pose_qw, initial.pose_qx, initial.pose_qy, initial.pose_qz);
-        Quaternion currentQuat(current.pose_qw, current.pose_qx, current.pose_qy, current.pose_qz);
-
-        // Calculate the relative quaternion
-        Quaternion relativeQuat = initialQuat.inverse() * currentQuat;
-
-        // Rotate the relative position by the inverse of the initial quaternion
-        Quaternion relPosQuat(0, rel_x, rel_y, rel_z);
-        Quaternion rotatedPosQuat = initialQuat.inverse() * relPosQuat * initialQuat;
-
-        // Update the relative pose with the rotated position
-        relativePose.pose_x = rotatedPosQuat.x;
-        relativePose.pose_y = rotatedPosQuat.y;
-        relativePose.pose_z = rotatedPosQuat.z;
-
-        // Update the relative pose with the relative quaternion
-        relativePose.pose_qx = relativeQuat.x;
-        relativePose.pose_qy = relativeQuat.y;
-        relativePose.pose_qz = relativeQuat.z;
-        relativePose.pose_qw = relativeQuat.w;
-
-        return relativePose;
+        abs_transform_publisher_->publish(transformStamped);
     }
 
 public:
@@ -121,8 +78,7 @@ public:
         }
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
         abs_transform_publisher_ = this->create_publisher<geometry_msgs::msg::TransformStamped>("vive_pose_abs", 150);
-        rel_transform_publisher_ = this->create_publisher<geometry_msgs::msg::TransformStamped>("vive_pose_rel", 150);
-        controller_data_publisher_ = this->create_publisher<vive_ros2::msg::VRControllerData>("controller_data", 10);
+        tracker_data_publisher_ = this->create_publisher<vive_ros2::msg::VRControllerData>("tracker_data", 10);
     }
 
     ~Client() {
@@ -131,7 +87,8 @@ public:
         }
     }
 
-    void publishControllerData(const VRControllerData &data, const VRControllerData &relData) {
+    void publishTrackerData(const VRControllerData &data) {
+        // TODO Use the data from the pogo pin connector
         vive_ros2::msg::VRControllerData msg;
         msg.grip_button = data.grip_button;
         msg.trigger_button = data.trigger_button;
@@ -144,7 +101,6 @@ public:
         msg.role = data.role;
         msg.time = data.time;
 
-        // Absolute pose data
         msg.abs_pose.header.stamp = this->get_clock()->now();
         msg.abs_pose.header.frame_id = "world";
         msg.abs_pose.child_frame_id = "vive_pose_abs";
@@ -156,19 +112,7 @@ public:
         msg.abs_pose.transform.rotation.z = data.pose_qz;
         msg.abs_pose.transform.rotation.w = data.pose_qw;
 
-        // Relative pose data
-        msg.rel_pose.header.stamp = this->get_clock()->now();
-        msg.rel_pose.header.frame_id = "world";
-        msg.rel_pose.child_frame_id = "vive_pose_rel";
-        msg.rel_pose.transform.translation.x = relData.pose_x;
-        msg.rel_pose.transform.translation.y = relData.pose_y;
-        msg.rel_pose.transform.translation.z = relData.pose_z;
-        msg.rel_pose.transform.rotation.x = relData.pose_qx;
-        msg.rel_pose.transform.rotation.y = relData.pose_qy;
-        msg.rel_pose.transform.rotation.z = relData.pose_qz;
-        msg.rel_pose.transform.rotation.w = relData.pose_qw;
-
-        controller_data_publisher_->publish(msg);
+        tracker_data_publisher_->publish(msg);
     }
 
     void start() {
@@ -194,6 +138,8 @@ public:
                     jsonData.pose_qy = j["pose"]["qy"];
                     jsonData.pose_qz = j["pose"]["qz"];
                     jsonData.pose_qw = j["pose"]["qw"];
+
+                    // TODO Use the data from the pogo pin connector
                     jsonData.menu_button = j["buttons"]["menu"];
                     jsonData.trigger_button = j["buttons"]["trigger"];
                     jsonData.trackpad_touch = j["buttons"]["trackpad_touch"];
@@ -220,35 +166,11 @@ public:
                     RCLCPP_DEBUG(this->get_logger(), "Trackpad y: %f", jsonData.trackpad_y);
                     RCLCPP_DEBUG(this->get_logger(), "Trigger: %f", jsonData.trigger);
                     RCLCPP_DEBUG(this->get_logger(), "Role: %d", jsonData.role);
-                    printf("\n");
 
-                    // Handle trigger button state
-                    if (jsonData.trigger_button && !triggerButtonPressed) {
-                        // Trigger button just pressed
-                        initialPose = jsonData;
-                        triggerButtonPressed = true;
-                    } else if (!jsonData.trigger_button && triggerButtonPressed) {
-                        triggerButtonPressed = false;
-                    }
-
-                    VRControllerData relativePose;
-                    if (triggerButtonPressed) {
-                        // Calculate and publish relative transform
-                        relativePose = calculateRelativePose(initialPose, jsonData);
-                        publishTransform(relativePose, true);   // isRelative = true
-                        publishTransform(jsonData);             // Publish absolute transform as well
-                    } else {
-                        // Publish the absolute transform
-                        publishTransform(jsonData);
-                    }
-
-                    // If menu button is pressed, reset the initial pose
-                    if (jsonData.menu_button) {
-                        initialPose = jsonData;
-                    }
-
-                    // Publish controller data
-                    publishControllerData(jsonData, relativePose);
+                    // Publish the absolute transform
+                    publishTransform(jsonData);
+                    // Publish tracker data
+                    publishTrackerData(jsonData);
 
                 } catch (json::parse_error& e) {
                     RCLCPP_ERROR(this->get_logger(), "JSON parse error: %s", e.what());

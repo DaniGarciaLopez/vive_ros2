@@ -52,11 +52,8 @@ void ViveInput::runVR() {
   auto lastLogTime = std::chrono::steady_clock::now(); // Initialize the last log time
 
   while (true) {
-    bool controllerDetected = false;
+    bool trackerDetected = false;
     VRUtils::resetJsonData(local_data);
-
-    // VRUtils::deviceConnectionCheck(pHMD);
-    // VRUtils::controllerConnectionCheck(pHMD);
 
     // update the poses
     pHMD->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, trackedDevicePose, vr::k_unMaxTrackedDeviceCount);
@@ -65,10 +62,8 @@ void ViveInput::runVR() {
       if (trackedDevicePose[i].bDeviceIsConnected && trackedDevicePose[i].bPoseIsValid
           && trackedDevicePose[i].eTrackingResult == vr::TrackingResult_Running_OK) {
 
-        if (VRUtils::controllerIsConnected(pHMD, i)) {
-          controllerDetected = true; // Mark that a controller was detected
-          // controllerRoleCheck(i);
-          // VRUtils::controllerRoleCheck(pHMD, i);
+      if (pHMD->GetTrackedDeviceClass(i) == vr::TrackedDeviceClass_GenericTracker) {
+          trackerDetected = true;
 
           // Get the pose of the device
           vr::HmdMatrix34_t steamVRMatrix = trackedDevicePose[i].mDeviceToAbsoluteTracking;
@@ -81,62 +76,14 @@ void ViveInput::runVR() {
           local_data.time = Server::getCurrentTimeWithMilliseconds();
           local_data.role = VRUtils::controllerRoleCheck(pHMD, i);
           local_data.pose_x = position.v[0];
-          local_data.pose_y = position.v[1] - 0.6;
+          local_data.pose_y = position.v[1];
           local_data.pose_z = position.v[2];
           local_data.pose_qx = quaternion.x;
           local_data.pose_qy = quaternion.y;
           local_data.pose_qz = quaternion.z;
           local_data.pose_qw = quaternion.w;
 
-          vr::VRControllerState_t controllerState;
-          pHMD->GetControllerState(i, &controllerState, sizeof(controllerState));
-          if ((1LL << vr::k_EButton_ApplicationMenu) & controllerState.ulButtonPressed){
-            logMessage(Debug, "Application Menu button pressed, resetting the pose");
-            first_run = true; // Reset the first run flag
-            local_data.menu_button = true;
-            // VRUtils::HapticFeedback(pHMD, i, 200);
-          }
-          if ((1LL << vr::k_EButton_SteamVR_Trigger) & controllerState.ulButtonPressed) {
-            logMessage(Debug, "Trigger button pressed");
-            local_data.trigger_button = true;
-            // VRUtils::HapticFeedback(pHMD, i, 500);
-          }
-          if ((1LL << vr::k_EButton_SteamVR_Touchpad) & controllerState.ulButtonPressed) {
-            logMessage(Debug, "Touchpad button pressed");
-            local_data.trackpad_button = true;
-            // VRUtils::HapticFeedback(pHMD, i, 200);
-          }
-          if ((1LL << vr::k_EButton_Grip) & controllerState.ulButtonPressed){
-            logMessage(Debug, "Grip button pressed");
-            local_data.grip_button = true;
-            // VRUtils::HapticFeedback(pHMD, i, 10);
-          }
-          if ((1LL << vr::k_EButton_SteamVR_Touchpad) & controllerState.ulButtonTouched) {
-            logMessage(Debug, "Touchpad button touched");
-            logMessage(Debug, "Trackpad: " + std::to_string(controllerState.rAxis[0].x) + " " + std::to_string(controllerState.rAxis[0].y));
-            local_data.trackpad_x = controllerState.rAxis[0].x;
-            local_data.trackpad_y = controllerState.rAxis[0].y;
-            local_data.trackpad_touch = true;
-          }
-
-          const int numSteps = 6;
-          const float stepSize = 1.0f / numSteps;
-          static int previousStep = -1; // Initialize previous step to an invalid value
-          // Get the current trigger value
-          float triggerValue = controllerState.rAxis[1].x;
-          int currentStep = static_cast<int>(triggerValue / stepSize);
-          logMessage(Debug, "Trigger: " + std::to_string(triggerValue) + "\n");
-          local_data.trigger = triggerValue;
-          // Check if the trigger value has crossed a new step
-          if (currentStep != previousStep) {
-              int vibrationDuration = static_cast<int>(triggerValue * 3000);
-              // VRUtils::HapticFeedback(pHMD, i, vibrationDuration);
-              previousStep = currentStep;
-          }
-          // haptic feedback after trigger value pass 0.6
-          // if (local_data.trigger == 0.6) {
-          //     VRUtils::HapticFeedback(pHMD, i, 100);
-          // }
+          // TODO Use the data from the pogo pin connector
 
           // Check if the input data is reasonable
           auto current_time = std::chrono::steady_clock::now();
@@ -158,15 +105,10 @@ void ViveInput::runVR() {
               // check if delta distance is too high
               if (delta_distance > 0.05) {
                   logMessage(Warning, "Unreasonable delta_distance detected: " + std::to_string(delta_distance) + " units. Skipping this data." + "\n");
-                  // VRUtils::HapticFeedback(pHMD, i, 20);
                   continue; // Skip this iteration if delta_distance is too high
               } else {
                   logMessage(Debug, "Will publish this data");
               }
-              // if (velocity > velocity_threshold) {
-              //     logMessage(Warning, "Unreasonable velocity detected: " + std::to_string(velocity) + " units/s. Skipping this data." + "\n");
-              //     continue;
-              // }
           } else {
               first_run = false; // Set the flag to false after the first run
           }
@@ -187,10 +129,9 @@ void ViveInput::runVR() {
     }
 
     auto currentTime = std::chrono::steady_clock::now();
-    if (!controllerDetected) {
+    if (!trackerDetected) {
       if (std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastLogTime).count() >= 1) {
-        // logMessage(Info, "[time] no controller detected");
-        logMessage(Info, "no controller detected, currentTime: " + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(currentTime.time_since_epoch()).count()));
+        logMessage(Info, "no tracker detected, currentTime: " + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(currentTime.time_since_epoch()).count()));
         first_run = true; // Reset the first run flag
         lastLogTime = currentTime; // Update the last log time
       }
@@ -226,6 +167,8 @@ bool ViveInput::shutdownVR() {
 }
 
 int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
     Server::setupSignalHandlers();
 
     std::mutex data_mutex;
